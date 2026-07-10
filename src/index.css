@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply font-body antialiased;
+}
+
+/* ============ BACKDROP ============ */
+/* Light: soft mesh. Dark (default): near-black with faint glows — Oryzo style. */
+.bg-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -20;
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 15%, rgba(11, 25, 87, 0.1), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 10%, rgba(26, 93, 42, 0.12), transparent 60%),
+    radial-gradient(ellipse 60% 55% at 80% 85%, rgba(227, 176, 43, 0.15), transparent 60%),
+    #f0efe4;
+}
+.dark .bg-mesh {
+  background:
+    radial-gradient(ellipse 50% 40% at 80% -10%, rgba(227, 176, 43, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 10% 110%, rgba(26, 93, 42, 0.2), transparent 60%),
+    #070e2e;
+}
+
+/* film-grain noise overlay */
+.noise::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.06'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============ SURFACES ============ */
+.glass {
+  @apply rounded-2xl border border-slate-200/80 bg-white/70 shadow-lg backdrop-blur-2xl dark:border-white/10 dark:bg-card/80 dark:shadow-none;
+}
+
+/* Diary entry card */
+.paper {
+  @apply rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-2xl dark:border-white/10 dark:bg-card/80;
+}
+
+/* ============ TECHNICAL LABELS (Oryzo style) ============ */
+.tag {
+  @apply font-mono text-[11px] uppercase tracking-[0.2em] text-slate-400 dark:text-white/40;
+}
+.tag-acid {
+  @apply font-mono text-[11px] uppercase tracking-[0.2em] text-lime-600 dark:text-acid;
+}
+
+/* ============ MARQUEE ============ */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee {
+  @apply overflow-hidden whitespace-nowrap border-y border-slate-200 dark:border-white/10;
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+.marquee-track {
+  display: inline-flex;
+  animation: marquee 28s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* ============ MISC ============ */
+.arrow-divider {
+  @apply my-4 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30;
+}
+.arrow-divider::before,
+.arrow-divider::after {
+  content: '';
+  @apply flex-1 border-t border-slate-200 dark:border-white/10;
+}
+
+input,
+textarea {
+  @apply bg-transparent focus:outline-none;
+}
+
+.btn-icon {
+  @apply rounded p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white;
+}
+
+::selection {
+  background: #e3b02b;
+  color: #0b1957;
+}
