@@ -66,13 +66,16 @@ const cloud = {
   },
 }
 
-export const storage = IS_LOCAL_MODE ? local : cloud
+// effective mode: also falls back to local if the client failed to init
+const isLocal = IS_LOCAL_MODE || !supabase
+
+export const storage = isLocal ? local : cloud
 
 // ---------- auth (no-ops in local mode) ----------
 export const auth = {
-  isLocal: IS_LOCAL_MODE,
+  isLocal,
   async getUser() {
-    if (IS_LOCAL_MODE) return { email: 'local@device' }
+    if (isLocal) return { email: 'local@device' }
     const { data } = await supabase.auth.getUser()
     return data.user
   },
@@ -85,10 +88,10 @@ export const auth = {
     if (error) throw error
   },
   async signOut() {
-    if (!IS_LOCAL_MODE) await supabase.auth.signOut()
+    if (!isLocal) await supabase.auth.signOut()
   },
   onAuthChange(cb) {
-    if (IS_LOCAL_MODE) return () => {}
+    if (isLocal) return () => {}
     const { data } = supabase.auth.onAuthStateChange((_e, session) => cb(session?.user ?? null))
     return () => data.subscription.unsubscribe()
   },

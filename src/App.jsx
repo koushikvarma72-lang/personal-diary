@@ -18,24 +18,28 @@ export default function App() {
   const [settings, setSettings] = useState(null)
   const [entries, setEntries] = useState({})
 
-  // auth bootstrap
+  // auth bootstrap — never leave the screen blank, even on failure
   useEffect(() => {
-    auth.getUser().then((u) => {
-      setUser(u)
-      setBooted(true)
-    })
+    auth
+      .getUser()
+      .then((u) => setUser(u))
+      .catch((e) => console.error('[daily-discipline] auth bootstrap failed:', e))
+      .finally(() => setBooted(true))
     return auth.onAuthChange(setUser)
   }, [])
 
   // data bootstrap once logged in
   useEffect(() => {
     if (!user) return
-    Promise.all([storage.getSettings(), storage.getAllEntries()]).then(
-      ([s, e]) => {
+    Promise.all([storage.getSettings(), storage.getAllEntries()])
+      .then(([s, e]) => {
         setSettings(s)
         setEntries(e)
-      }
-    )
+      })
+      .catch((e) => {
+        console.error('[daily-discipline] data bootstrap failed:', e)
+        setSettings((s) => s) // keep whatever we have; UI shows loading state
+      })
   }, [user])
 
   // dark mode
