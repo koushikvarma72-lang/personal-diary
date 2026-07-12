@@ -7,6 +7,8 @@ export default function Settings() {
   const { settings, saveSettings, user } = useApp()
   const [newLabel, setNewLabel] = useState('')
   const [newType, setNewType] = useState('habit')
+  // local buffer so you can clear/type freely (e.g. 7, 21, 100)
+  const [lenInput, setLenInput] = useState(String(settings.challenge.length))
 
   const setHabits = (habits) => saveSettings({ ...settings, habits })
 
@@ -51,28 +53,30 @@ export default function Settings() {
             <button onClick={() => remove(h.id)} className="btn-icon text-red-500"><Trash2 size={15} /></button>
           </div>
         ))}
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && add()}
             placeholder="New habit or task…"
-            className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className="w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           />
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          >
-            <option value="habit">Habit</option>
-            <option value="task">Task</option>
-          </select>
-          <button
-            onClick={add}
-            className="flex items-center gap-1 rounded-lg bg-ink px-3 py-2 text-sm font-medium text-white hover:bg-blue-800"
-          >
-            <Plus size={15} /> Add
-          </button>
+          <div className="flex gap-2">
+            <select
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white sm:flex-none"
+            >
+              <option value="habit">Habit</option>
+              <option value="task">Task</option>
+            </select>
+            <button
+              onClick={add}
+              className="flex shrink-0 items-center justify-center gap-1 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 dark:bg-acid dark:text-card dark:hover:brightness-110"
+            >
+              <Plus size={15} /> Add
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -91,8 +95,17 @@ export default function Settings() {
             <input
               type="number"
               min={1}
-              value={settings.challenge.length}
-              onChange={(e) => setChallenge({ length: Number(e.target.value) || 30 })}
+              max={3650}
+              value={lenInput}
+              onChange={(e) => {
+                setLenInput(e.target.value)
+                const n = parseInt(e.target.value, 10)
+                if (n >= 1) setChallenge({ length: n })
+              }}
+              onBlur={() => {
+                const n = parseInt(lenInput, 10)
+                if (!(n >= 1)) setLenInput(String(settings.challenge.length))
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </label>
