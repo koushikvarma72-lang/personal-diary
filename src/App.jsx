@@ -4,6 +4,7 @@ import { storage, auth } from './lib/storage'
 import { EMPTY_ENTRY } from './lib/defaults'
 import Layout from './components/Layout'
 import AuthPage from './components/AuthPage'
+import Landing from './pages/Landing'
 import Today from './pages/Today'
 import History from './pages/History'
 import Analytics from './pages/Analytics'
@@ -66,7 +67,17 @@ export default function App() {
   }, [])
 
   if (!booted) return null
-  if (!user) return <AuthPage onLogin={setUser} />
+
+  // logged out: landing page at /, sign-in at /auth
+  if (!user)
+    return (
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/auth" element={<AuthPage onLogin={setUser} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    )
+
   if (!settings)
     return (
       <div className="flex h-screen items-center justify-center text-ink dark:text-blue-200">
@@ -84,6 +95,8 @@ export default function App() {
           <Route path="/history" element={<History />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
+          {/* logged-in users skip landing/auth and land in the app */}
+          <Route path="/auth" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
