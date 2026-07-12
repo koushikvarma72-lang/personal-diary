@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useApp } from '../App'
 import { auth } from '../lib/storage'
-import { Trash2, Plus, ArrowUp, ArrowDown } from 'lucide-react'
+import { todayISO, challengeDay } from '../lib/stats'
+import { Trash2, Plus, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react'
 
 export default function Settings() {
   const { settings, saveSettings, user } = useApp()
@@ -35,6 +36,16 @@ export default function Settings() {
 
   const setChallenge = (patch) =>
     saveSettings({ ...settings, challenge: { ...settings.challenge, ...patch } })
+
+  // changing the length also renames "N-Day Challenge" if you kept the default name
+  const applyLength = (n) => {
+    const patch = { length: n }
+    if (/^\d+-day challenge$/i.test(settings.challenge.name.trim()))
+      patch.name = `${n}-Day Challenge`
+    setChallenge(patch)
+  }
+
+  const day = challengeDay(todayISO(), settings.challenge)
 
   return (
     <div className="space-y-4">
@@ -100,7 +111,7 @@ export default function Settings() {
               onChange={(e) => {
                 setLenInput(e.target.value)
                 const n = parseInt(e.target.value, 10)
-                if (n >= 1) setChallenge({ length: n })
+                if (n >= 1) applyLength(n)
               }}
               onBlur={() => {
                 const n = parseInt(lenInput, 10)
@@ -118,6 +129,22 @@ export default function Settings() {
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </label>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-500 dark:text-white/40">
+            {day
+              ? `Currently on day ${day} of ${settings.challenge.length} (started ${settings.challenge.startDate}).`
+              : `Challenge not active — start date is ${settings.challenge.startDate}.`}
+          </p>
+          <button
+            onClick={() => {
+              if (confirm('Restart the challenge from today? Day counter resets to 1. Your history stays saved.'))
+                setChallenge({ startDate: todayISO() })
+            }}
+            className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-acid/40 dark:text-acid dark:hover:bg-acid/10"
+          >
+            <RotateCcw size={14} /> Restart from today (Day 1)
+          </button>
         </div>
       </Card>
 
