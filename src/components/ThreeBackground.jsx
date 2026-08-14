@@ -7,6 +7,14 @@ export default function ThreeBackground() {
 
   useEffect(() => {
     const el = ref.current
+    let renderer = null
+    try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+    } catch (e) {
+      // WebGL unavailable (blocked, headless, old GPU, etc.) — skip the
+      // background entirely instead of crashing the whole app.
+      return
+    }
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(
       60,
@@ -16,7 +24,6 @@ export default function ThreeBackground() {
     )
     camera.position.z = 20
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     el.appendChild(renderer.domElement)

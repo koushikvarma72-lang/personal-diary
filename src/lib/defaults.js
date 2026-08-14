@@ -41,4 +41,32 @@ export const EMPTY_ENTRY = (date) => ({
   take: '',
   mood: null,
   photos: [],
+  tags: [],
+  prompt: null,
+  promptAnswer: '',
 })
+
+// Guided reflection prompts — a stable "prompt of the day" per date,
+// with a shuffle to override.
+export const PROMPTS = [
+  'What would you do today if you had no fear?',
+  'What did you learn about yourself today?',
+  'Who made today better, and why?',
+  'What is one thing you keep avoiding?',
+  'Describe today in three words.',
+  'What are you grateful for right now?',
+  'What does your ideal day look like?',
+  'What did you say no to today?',
+  'What would you tell your younger self?',
+  'What is working in your life right now?',
+  'What one small change would improve tomorrow?',
+  'What did you do today that took courage?',
+  'What are you pretending not to know?',
+  'What would a great version of tomorrow look like?',
+  'What is one thing you are proud of this week?',
+  'What has been on your mind lately?',
+  'What advice would you give a friend in your situation?',
+  'What did you notice today that you usually miss?',
+  'How did you take care of yourself today?',
+  'What is one thing you want to remember about today?',
+]

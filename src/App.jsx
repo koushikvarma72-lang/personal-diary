@@ -13,6 +13,13 @@ import WeeklyReview from './pages/WeeklyReview'
 import Search from './pages/Search'
 import Settings from './pages/Settings'
 import Toast from './components/Toast'
+import PinLock from './components/PinLock'
+import {
+  getPinHash,
+  isUnlockedThisSession,
+  unlockSession,
+  lockSession,
+} from './lib/pin'
 
 const NAG_KEY = 'dd_nag_dismiss'
 let toastSeq = 0
@@ -34,6 +41,7 @@ export default function App() {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(NAG_KEY) === todayISO())
   const [loadError, setLoadError] = useState(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
+  const [locked, setLocked] = useState(false)
 
   // auth bootstrap
   useEffect(() => {
@@ -66,6 +74,22 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', settings?.theme === 'dark')
   }, [settings?.theme])
+
+  // PIN lock gate — locks on every load until unlocked once per session
+  useEffect(() => {
+    if (!user || !settings) return
+    if (getPinHash() && !isUnlockedThisSession()) setLocked(true)
+  }, [user, settings])
+
+  const unlock = useCallback(() => {
+    unlockSession()
+    setLocked(false)
+  }, [])
+
+  const lockNow = useCallback(() => {
+    lockSession()
+    setLocked(true)
+  }, [])
 
   // keep the optimistic-copy ref in sync with the entries state
   useEffect(() => {
@@ -219,6 +243,8 @@ export default function App() {
           (entry.regret && entry.regret.toLowerCase().includes(q)) ||
           (entry.achievement && entry.achievement.toLowerCase().includes(q)) ||
           (entry.take && entry.take.toLowerCase().includes(q)) ||
+          (entry.promptAnswer && entry.promptAnswer.toLowerCase().includes(q)) ||
+          (entry.tags && entry.tags.some((t) => t.includes(q))) ||
           entry.date.includes(q)
         )
       })
@@ -281,9 +307,11 @@ export default function App() {
       </div>
     )
 
+  if (locked) return <PinLock onUnlock={unlock} />
+
   return (
     <AppCtx.Provider
-      value={{ user, settings, saveSettings, restoreData, entries, getEntry, updateEntry, deleteEntry, searchEntries, saving, todayIncomplete, dismissToday }}
+      value={{ user, settings, saveSettings, restoreData, entries, getEntry, updateEntry, deleteEntry, searchEntries, saving, todayIncomplete, dismissToday, lockNow }}
     >
       <ToastCtx.Provider value={{ addToast, removeToast }}>
         <Layout>

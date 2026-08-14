@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../App'
 import { useToast } from '../App'
 import { challengeDay, formatDate } from '../lib/stats'
-import { MOODS } from '../lib/defaults'
-import { Trash2, Sparkles, Save, Camera, X } from 'lucide-react'
+import { MOODS, PROMPTS } from '../lib/defaults'
+import { Trash2, Sparkles, Save, Camera, X, Hash, RefreshCw } from 'lucide-react'
 
 const readFileAsDataURL = (file) =>
   new Promise((resolve, reject) => {
@@ -51,7 +51,36 @@ export default function EntryEditor({ date }) {
   const done = all.filter((it) => entry.checks?.[it.id] === true).length
   const [showConfetti, setShowConfetti] = useState(false)
   const [showLightbox, setShowLightbox] = useState(null)
+  const [tagInput, setTagInput] = useState('')
   const saveState = saving?.[date]
+
+  // stable per-date prompt; shuffle persists an override in the entry
+  const promptIndex = parseInt(date.replace(/-/g, ''), 10) % PROMPTS.length
+  const prompt = entry.prompt || PROMPTS[promptIndex]
+  const shufflePrompt = () => {
+    const next = PROMPTS[(PROMPTS.indexOf(prompt) + 1) % PROMPTS.length]
+    updateEntry(date, { prompt: next })
+  }
+
+  const addTag = () => {
+    const t = tagInput.trim().replace(/^#/, '').toLowerCase()
+    if (!t) return
+    const existing = entry.tags || []
+    if (existing.some((x) => x === t)) {
+      setTagInput('')
+      return
+    }
+    if (existing.length >= 10) {
+      addToast('Max 10 tags per entry', 'error')
+      return
+    }
+    updateEntry(date, { tags: [...existing, t] })
+    setTagInput('')
+  }
+
+  const removeTag = (i) => {
+    updateEntry(date, { tags: (entry.tags || []).filter((_, x) => x !== i) })
+  }
 
   const handleAddPhotos = async (e) => {
     const files = Array.from(e.target.files || [])
@@ -392,6 +421,47 @@ export default function EntryEditor({ date }) {
           </label>
         </div>
 
+        {/* Tags */}
+        <div className="mb-5">
+          <p className="tag mb-2">[ tags ]</p>
+          {entry.tags?.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {entry.tags.map((t, i) => (
+                <span
+                  key={i}
+                  className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 font-mono text-xs text-slate-600 dark:bg-white/10 dark:text-slate-200"
+                >
+                  #{t}
+                  <button
+                    onClick={() => removeTag(i)}
+                    title="Remove tag"
+                    className="text-slate-400 transition hover:text-red-500"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addTag()
+                }
+              }}
+              placeholder="Add a tag…"
+              className="w-44 rounded-lg border border-slate-300 bg-white/60 px-3 py-1.5 text-sm dark:border-white/15 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+            />
+            <button onClick={addTag} title="Add tag" className="btn-icon">
+              <Hash size={14} />
+            </button>
+          </div>
+        </div>
+
         <p className="tag mb-2">[ habits — {String(habits.length).padStart(2, '0')} ]</p>
         {habits.map((h, i) => (
           <Row key={h.id} item={h} index={i} />
@@ -407,6 +477,30 @@ export default function EntryEditor({ date }) {
         )}
 
         <div className="arrow-divider">reflection</div>
+
+        {/* Prompt of the day */}
+        <div className="mt-5">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="tag-acid">[ prompt of the day ]</p>
+            <button
+              onClick={shufflePrompt}
+              title="Another prompt"
+              className="btn-icon"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+          <p className="font-hand text-xl text-slate-700 dark:text-slate-200">{prompt}</p>
+          <textarea
+            rows={2}
+            defaultValue={entry.promptAnswer}
+            key={date + 'promptAnswer'}
+            onBlur={(e) => updateEntry(date, { promptAnswer: e.target.value })}
+            placeholder="Write freely…"
+            className="font-hand w-full resize-none text-2xl leading-9 text-slate-800 placeholder:text-slate-300 dark:text-slate-100 dark:placeholder:text-white/20"
+          />
+        </div>
+
         <Section
           label="Regret of the day"
           value={entry.regret}

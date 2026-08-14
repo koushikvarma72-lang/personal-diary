@@ -4,6 +4,7 @@ import { useApp } from '../App'
 import { useToast } from '../App'
 import { auth } from '../lib/storage'
 import { todayISO, challengeDay } from '../lib/stats'
+import { getPinHash, setPin, clearPin } from '../lib/pin'
 import { Trash2, Plus, ArrowUp, ArrowDown, RotateCcw, Download, Upload, Bell, BellOff } from 'lucide-react'
 
 // entries → CSV rows (date, mood, one column per habit/task, reflections)
@@ -35,9 +36,11 @@ const buildCSV = (settings, entries) => {
 }
 
 export default function Settings() {
-  const { settings, saveSettings, restoreData, user, entries } = useApp()
+  const { settings, saveSettings, restoreData, user, entries, lockNow } = useApp()
   const [newLabel, setNewLabel] = useState('')
   const [newType, setNewType] = useState('habit')
+  const [pinInput, setPinInput] = useState('')
+  const [pinConfirm, setPinConfirm] = useState('')
   // local buffer so you can clear/type freely (e.g. 7, 21, 100)
   const [lenInput, setLenInput] = useState(String(settings.challenge.length))
 
@@ -103,6 +106,30 @@ export default function Settings() {
     a.click()
     URL.revokeObjectURL(url)
     addToast('📊 CSV exported', 'success')
+  }
+
+  const handlePinSubmit = async () => {
+    if (pinInput.length < 4 || pinInput !== pinConfirm) return
+    try {
+      await setPin(pinInput)
+      setPinInput('')
+      setPinConfirm('')
+      addToast(getPinHash() ? '🔒 PIN changed' : '🔒 PIN set', 'success')
+    } catch (err) {
+      addToast('Could not set PIN: ' + err.message, 'error')
+    }
+  }
+
+  const handleRemovePin = () => {
+    if (confirm('Remove the PIN lock?')) {
+      clearPin()
+      addToast('PIN removed', 'success')
+    }
+  }
+
+  const handleLockNow = () => {
+    lockNow()
+    addToast('🔒 Locked', 'success')
   }
 
   const handleImport = async (e) => {
@@ -292,6 +319,65 @@ export default function Settings() {
             <>Signed in as <b>{user?.email}</b></>
           )}
         </p>
+      </Card>
+
+      <Card title="Privacy">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {getPinHash()
+            ? 'A PIN is set — the app locks on every load until you unlock once per session.'
+            : 'Lock the app behind a 4–6 digit PIN. It is a deterrent, not encryption — your data stays where you put it.'}
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handlePinSubmit()
+          }}
+          className="mt-4 flex flex-col gap-2 sm:flex-row"
+        >
+          <input
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            value={pinInput}
+            onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+            placeholder={getPinHash() ? 'New PIN' : 'Choose a PIN'}
+            className="w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+          />
+          <input
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            value={pinConfirm}
+            onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ''))}
+            placeholder="Confirm PIN"
+            className="w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+          />
+          <button
+            type="submit"
+            disabled={pinInput.length < 4 || pinInput !== pinConfirm}
+            className="rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-40 dark:bg-acid dark:text-card dark:hover:brightness-110"
+          >
+            {getPinHash() ? 'Change PIN' : 'Set PIN'}
+          </button>
+        </form>
+        {getPinHash() && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={handleLockNow}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-acid/40 dark:text-acid dark:hover:bg-acid/10"
+            >
+              Lock now
+            </button>
+            <button
+              onClick={handleRemovePin}
+              className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-500 transition hover:bg-red-50 dark:border-red-500/40 dark:hover:bg-red-500/10"
+            >
+              Remove PIN
+            </button>
+          </div>
+        )}
       </Card>
 
       <Card title="Data">
