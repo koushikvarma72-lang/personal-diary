@@ -4,10 +4,38 @@ import { useApp } from '../App'
 import { useToast } from '../App'
 import { auth } from '../lib/storage'
 import { todayISO, challengeDay } from '../lib/stats'
-import { Trash2, Plus, ArrowUp, ArrowDown, RotateCcw, Download, Bell, BellOff } from 'lucide-react'
+import { Trash2, Plus, ArrowUp, ArrowDown, RotateCcw, Download, Upload, Bell, BellOff } from 'lucide-react'
+
+// entries → CSV rows (date, mood, one column per habit/task, reflections)
+const buildCSV = (settings, entries) => {
+  const items = settings.habits
+  const esc = (v) => {
+    const s = v ?? ''
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+  }
+  const header = ['date', 'mood', ...items.map((i) => i.label), 'regret', 'achievement', 'take']
+  const rows = Object.keys(entries)
+    .sort()
+    .map((d) => {
+      const e = entries[d]
+      return [
+        d,
+        e.mood ?? '',
+        ...items.map((i) =>
+          e.checks?.[i.id] === true ? '✓' : e.checks?.[i.id] === false ? '✗' : ''
+        ),
+        e.regret ?? '',
+        e.achievement ?? '',
+        e.take ?? '',
+      ]
+        .map(esc)
+        .join(',')
+    })
+  return [header.map(esc).join(','), ...rows].join('\n')
+}
 
 export default function Settings() {
-  const { settings, saveSettings, user, entries } = useApp()
+  const { settings, saveSettings, restoreData, user, entries } = useApp()
   const [newLabel, setNewLabel] = useState('')
   const [newType, setNewType] = useState('habit')
   // local buffer so you can clear/type freely (e.g. 7, 21, 100)
@@ -63,6 +91,38 @@ export default function Settings() {
     a.click()
     URL.revokeObjectURL(url)
     addToast('📦 Data exported successfully', 'success')
+  }
+
+  const handleExportCSV = () => {
+    const csv = buildCSV(settings, entries)
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `daily-discipline-entries-${todayISO()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast('📊 CSV exported', 'success')
+  }
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    try {
+      const data = JSON.parse(await file.text())
+      if (!data.entries && !data.settings) throw new Error('not a Daily*Discipline backup')
+      if (
+        confirm(
+          'Replace all current data with this backup? Entries and settings will be overwritten.'
+        )
+      ) {
+        await restoreData(data)
+        addToast('📥 Backup restored', 'success')
+      }
+    } catch (err) {
+      addToast(`Import failed: ${err.message}`, 'error')
+    }
   }
 
   return (
@@ -173,8 +233,8 @@ export default function Settings() {
               Daily reminder
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-white/40">
-              Nags you while the app is open if today's entry isn't done yet — reminds you right
-              away, then again every hour and whenever you return to the tab, until you check in.
+              Reminds you from your chosen time onward if today's entry isn't done yet — then
+              keeps nagging every hour and whenever you return to the tab, until you check in.
             </p>
           </div>
           <button
@@ -204,6 +264,21 @@ export default function Settings() {
             </motion.span>
           </button>
         </div>
+        <div className="mt-4 flex items-center gap-3">
+          <label
+            htmlFor="reminder-time"
+            className="text-sm text-slate-600 dark:text-slate-300"
+          >
+            Reminder time
+          </label>
+          <input
+            id="reminder-time"
+            type="time"
+            value={settings.reminderTime || '20:00'}
+            onChange={(e) => saveSettings({ ...settings, reminderTime: e.target.value })}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:[color-scheme:dark]"
+          />
+        </div>
       </Card>
 
       <Card title="Account">
@@ -221,14 +296,32 @@ export default function Settings() {
 
       <Card title="Data">
         <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
-          Export all your diary data as a JSON file. Contains entries, settings, and challenge data.
+          Export or restore your diary. JSON keeps settings + entries (use it for backups and
+          restoring); CSV is for spreadsheets.
         </p>
-        <button
-          onClick={handleExport}
-          className="flex items-center justify-center gap-2 rounded-lg bg-ink px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-800 dark:bg-acid dark:text-card dark:hover:brightness-110"
-        >
-          <Download size={16} /> Export all data (JSON)
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 dark:bg-acid dark:text-card dark:hover:brightness-110"
+          >
+            <Download size={15} /> JSON export
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-acid/40 dark:text-acid dark:hover:bg-acid/10"
+          >
+            <Download size={15} /> CSV export
+          </button>
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-acid/40 dark:text-acid dark:hover:bg-acid/10">
+            <Upload size={15} /> Import backup…
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleImport}
+            />
+          </label>
+        </div>
       </Card>
     </div>
   )

@@ -19,16 +19,18 @@ export const DEFAULT_SETTINGS = {
     startDate: '2026-06-22',
   },
   notifications: false,
+  reminderTime: '20:00',
   theme: 'dark',
 }
 
+// score: 1 (worst) → 5 (best), used for mood-vs-habit correlations
 export const MOODS = [
-  { emoji: '😊', label: 'Great', color: 'text-lime-500' },
-  { emoji: '😐', label: 'Okay', color: 'text-yellow-500' },
-  { emoji: '😢', label: 'Sad', color: 'text-blue-400' },
-  { emoji: '😡', label: 'Frustrated', color: 'text-red-500' },
-  { emoji: '🥱', label: 'Tired', color: 'text-purple-400' },
-  { emoji: '🔥', label: 'On Fire', color: 'text-orange-500' },
+  { emoji: '😊', label: 'Great', color: 'text-lime-500', score: 4 },
+  { emoji: '😐', label: 'Okay', color: 'text-yellow-500', score: 2 },
+  { emoji: '😢', label: 'Sad', color: 'text-blue-400', score: 1 },
+  { emoji: '😡', label: 'Frustrated', color: 'text-red-500', score: 2 },
+  { emoji: '🥱', label: 'Tired', color: 'text-purple-400', score: 3 },
+  { emoji: '🔥', label: 'On Fire', color: 'text-orange-500', score: 5 },
 ]
 
 export const EMPTY_ENTRY = (date) => ({
@@ -38,4 +40,5 @@ export const EMPTY_ENTRY = (date) => ({
   achievement: '',
   take: '',
   mood: null,
+  photos: [],
 })

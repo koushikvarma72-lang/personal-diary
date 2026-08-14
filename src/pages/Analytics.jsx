@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useApp } from '../App'
 import {
@@ -6,7 +7,10 @@ import {
   perfectStreak,
   trend,
   heatmap,
+  moodCorrelations,
+  yearPixels,
 } from '../lib/stats'
+import { MOODS } from '../lib/defaults'
 import {
   ResponsiveContainer,
   BarChart,
@@ -18,8 +22,22 @@ import {
   Line,
   CartesianGrid,
 } from 'recharts'
-import { Flame, Trophy } from 'lucide-react'
+import { Flame, Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
 import { CountUp } from './Today'
+
+// nearest mood emoji for an average score (1–5)
+const scoreToEmoji = (s) =>
+  s >= 4.5 ? '🔥' : s >= 3.5 ? '😊' : s >= 2.5 ? '🥱' : s >= 1.5 ? '😐' : '😢'
+
+// year-in-pixels fill colors per mood
+const moodBg = {
+  '😊': 'bg-lime-500/80',
+  '😐': 'bg-yellow-400/80',
+  '😢': 'bg-blue-400/80',
+  '😡': 'bg-red-500/80',
+  '🥱': 'bg-purple-400/80',
+  '🔥': 'bg-orange-400/80',
+}
 
 export default function Analytics() {
   const { settings, entries } = useApp()
@@ -28,6 +46,10 @@ export default function Analytics() {
   const perfect = perfectStreak(entries, items)
   const trendData = trend(entries, items, 30)
   const heat = heatmap(entries, items, 16)
+  const corr = moodCorrelations(entries, items)
+  const corrRows = [...corr].sort((a, b) => Math.abs(b.diff ?? -1) - Math.abs(a.diff ?? -1))
+  const [pixelYear, setPixelYear] = useState(() => new Date().getFullYear())
+  const pixels = yearPixels(pixelYear, entries)
   const isDark = settings.theme === 'dark'
   const lineColor = isDark ? '#e3b02b' : '#1a5d2a'
   const axisColor = isDark ? 'rgba(255,255,255,0.35)' : '#94a3b8'
@@ -139,6 +161,92 @@ export default function Analytics() {
             <Bar dataKey="rate" fill={lineColor} radius={[0, 6, 6, 0]} barSize={18} />
           </BarChart>
         </ResponsiveContainer>
+      </Card>
+
+      {/* year in pixels */}
+      <Card title={`year in pixels — ${pixelYear}`} className="lg:col-span-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPixelYear((y) => y - 1)} className="btn-icon">
+              <ChevronLeft size={16} />
+            </button>
+            <button onClick={() => setPixelYear((y) => y + 1)} className="btn-icon">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {MOODS.map((m) => (
+              <span
+                key={m.emoji}
+                className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-white/40"
+              >
+                <span className={`h-2.5 w-2.5 rounded-sm ${moodBg[m.emoji]}`} /> {m.emoji}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1">
+          {pixels.map((month) => (
+            <div key={month.label} className="flex items-center gap-2">
+              <span className="w-7 shrink-0 font-mono text-[9px] uppercase text-slate-400 dark:text-white/30">
+                {month.label}
+              </span>
+              <div
+                className="grid flex-1 gap-[3px]"
+                style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}
+              >
+                {month.days.map(({ date, entry }) => (
+                  <div
+                    key={date}
+                    title={date + (entry?.mood ? ' — ' + entry.mood : '')}
+                    className={`aspect-square rounded-sm ${
+                      entry
+                        ? entry.mood
+                          ? moodBg[entry.mood] || 'bg-slate-400'
+                          : 'bg-slate-300 dark:bg-white/20'
+                        : 'bg-slate-100 dark:bg-white/5'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* mood vs habits */}
+      <Card title="mood vs habits" className="lg:col-span-2">
+        <p className="tag mb-3">avg mood on done vs missed days — biggest gaps first</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {corrRows.map((row) => {
+            const enough = row.doneAvg != null && row.missedAvg != null && row.doneCount >= 2 && row.missedCount >= 2
+            return (
+              <div
+                key={row.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/50 px-3 py-2 dark:border-white/10 dark:bg-white/5"
+              >
+                <span className="min-w-0 flex-1 truncate font-display text-sm font-medium">{row.label}</span>
+                {enough ? (
+                  <>
+                    <span className="tag shrink-0">{scoreToEmoji(row.doneAvg)} {row.doneAvg.toFixed(1)}</span>
+                    <span className="shrink-0 text-xs text-slate-400">→</span>
+                    <span className="tag shrink-0">{scoreToEmoji(row.missedAvg)} {row.missedAvg.toFixed(1)}</span>
+                    <span
+                      className={`shrink-0 font-mono text-xs ${
+                        row.diff >= 0 ? 'text-lime-600 dark:text-acid' : 'text-red-500'
+                      }`}
+                      title={row.diff >= 0 ? 'better mood when done' : 'worse mood when done'}
+                    >
+                      {row.diff >= 0 ? '▲' : '▼'} {Math.abs(row.diff).toFixed(1)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="tag shrink-0">not enough data</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </Card>
 
       {/* per-habit streak table */}

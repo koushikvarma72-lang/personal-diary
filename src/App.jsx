@@ -80,16 +80,24 @@ export default function App() {
   )
 
   // browser notification permission + notification
-  // If today's entry isn't done, remind right away, then keep re-reminding
-  // while the app stays open (hourly) and whenever the tab regains focus,
-  // until the entry is complete or the banner is dismissed.
+  // If today's entry isn't done, remind at the chosen reminder time (or
+  // immediately if it's already past), then keep re-reminding while the app
+  // stays open (hourly) and whenever the tab regains focus, until the entry
+  // is complete or the banner is dismissed.
   useEffect(() => {
     if (!settings?.notifications || !todayIncomplete) return
     if (typeof Notification === 'undefined') return
 
     const REMINDER_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
     const FOCUS_COOLDOWN_MS = 5 * 60 * 1000 // don't re-nag more often than every 5 min
+    const [h, m] = (settings.reminderTime || '20:00').split(':').map(Number)
+    const at = new Date()
+    at.setHours(h, m, 0, 0)
+    const delay = Math.max(0, at - new Date())
+
     let lastSent = 0
+    let interval = null
+    let timer = null
 
     const send = (minGapMs = 0) => {
       if (Notification.permission !== 'granted') return
@@ -102,25 +110,46 @@ export default function App() {
       })
     }
 
-    if (Notification.permission === 'granted') {
-      send()
-    } else if (Notification.permission === 'default') {
-      Notification.requestPermission().then((perm) => {
-        if (perm === 'granted') send()
-      })
-    }
-
-    const interval = setInterval(() => send(), REMINDER_INTERVAL_MS)
     const onVisibility = () => {
       if (document.visibilityState === 'visible') send(FOCUS_COOLDOWN_MS)
     }
-    document.addEventListener('visibilitychange', onVisibility)
+
+    const armLoop = () => {
+      interval = setInterval(() => send(), REMINDER_INTERVAL_MS)
+      document.addEventListener('visibilitychange', onVisibility)
+    }
+
+    if (Notification.permission === 'granted') {
+      if (delay === 0) {
+        send()
+        armLoop()
+      } else {
+        timer = setTimeout(() => {
+          send()
+          armLoop()
+        }, delay)
+      }
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then((perm) => {
+        if (perm !== 'granted') return
+        if (delay === 0) {
+          send()
+          armLoop()
+        } else {
+          timer = setTimeout(() => {
+            send()
+            armLoop()
+          }, delay)
+        }
+      })
+    }
 
     return () => {
-      clearInterval(interval)
+      if (interval) clearInterval(interval)
+      if (timer) clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [settings?.notifications, todayIncomplete])
+  }, [settings?.notifications, settings?.reminderTime, todayIncomplete])
 
   // dismiss the reminder banner for the day
   const dismissToday = useCallback(() => {
@@ -202,6 +231,25 @@ export default function App() {
     storage.saveSettings(next)
   }, [])
 
+  // restore a full backup (settings + all entries), replacing current data
+  const restoreData = useCallback(
+    async (data) => {
+      if (!data || typeof data !== 'object') throw new Error('Invalid backup file')
+      const nextSettings =
+        data.settings && typeof data.settings === 'object' ? data.settings : settings
+      const nextEntries =
+        data.entries && typeof data.entries === 'object' ? data.entries : {}
+      setSettings(nextSettings)
+      setEntries(nextEntries)
+      entriesRef.current = nextEntries
+      await Promise.all([
+        storage.saveSettings(nextSettings),
+        storage.replaceAllEntries(nextEntries),
+      ])
+    },
+    [settings]
+  )
+
   if (!booted) return null
 
   // logged out: landing page at /, sign-in at /auth
@@ -235,7 +283,7 @@ export default function App() {
 
   return (
     <AppCtx.Provider
-      value={{ user, settings, saveSettings, entries, getEntry, updateEntry, deleteEntry, searchEntries, saving, todayIncomplete, dismissToday }}
+      value={{ user, settings, saveSettings, restoreData, entries, getEntry, updateEntry, deleteEntry, searchEntries, saving, todayIncomplete, dismissToday }}
     >
       <ToastCtx.Provider value={{ addToast, removeToast }}>
         <Layout>

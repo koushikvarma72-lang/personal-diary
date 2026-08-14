@@ -46,10 +46,10 @@ For client-side routing add a redirect:
 
 ## Features
 
-- **Today** — diary-style page: challenge day (e.g. 17/30), habits & tasks with ( ✓ ) / ( ✗ ) toggles (tap to cycle blank → ✓ → ✗), Regret / Achievement / Take of the Day. Auto-saves.
-- **History** — 28-day color strip + date picker; open and edit any past day.
-- **Analytics** — perfect-day streaks, ~4-month consistency heatmap, 30-day completion trend, per-habit success rates and streak table.
-- **Settings** — add/remove/reorder habits & tasks, challenge name/length/start date. Comes pre-filled with your current 10 items.
+- **Today** — diary-style page: challenge day (e.g. 17/30), habits & tasks with ( ✓ ) / ( ✗ ) toggles (tap to cycle blank → ✓ → ✗), mood, photo attachments, Regret / Achievement / Take of the Day. Auto-saves.
+- **History** — 28-day color strip + date picker; open and edit any past day, plus an "on this day" lookback at past years.
+- **Analytics** — perfect-day streaks, ~4-month consistency heatmap, year-in-pixels mood grid, 30-day completion trend, per-habit success rates and streak table, and mood-vs-habit correlations.
+- **Settings** — add/remove/reorder habits & tasks, challenge name/length/start date, reminder time, and data export/restore (JSON backup, CSV for spreadsheets). Comes pre-filled with your current 10 items.
 - **Extras** — dark mode, mobile bottom nav, installable PWA manifest, Three.js particle background.
 
 ## Project structure

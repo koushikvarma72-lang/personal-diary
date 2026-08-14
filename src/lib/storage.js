@@ -34,6 +34,9 @@ const local = {
     delete all[date]
     localStorage.setItem(LS_ENTRIES, JSON.stringify(all))
   },
+  async replaceAllEntries(map) {
+    localStorage.setItem(LS_ENTRIES, JSON.stringify(map))
+  },
 }
 
 // ---------- supabase implementation ----------
@@ -76,6 +79,27 @@ const cloud = {
       .delete()
       .eq('user_id', user.id)
       .eq('date', date)
+  },
+  async replaceAllEntries(map) {
+    const { data: { user } } = await supabase.auth.getUser()
+    // remove dates that no longer exist in the backup
+    const { data: existing } = await supabase.from('entries').select('date').eq('user_id', user.id)
+    const keep = new Set(Object.keys(map))
+    const toDelete = (existing || []).map((r) => r.date).filter((d) => !keep.has(d))
+    if (toDelete.length) {
+      await supabase
+        .from('entries')
+        .delete()
+        .eq('user_id', user.id)
+        .in('date', toDelete)
+    }
+    // write the backup entries
+    if (Object.keys(map).length) {
+      await supabase.from('entries').upsert(
+        Object.entries(map).map(([date, data]) => ({ user_id: user.id, date, data })),
+        { onConflict: 'user_id,date' }
+      )
+    }
   },
 }
 

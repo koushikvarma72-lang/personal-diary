@@ -4,7 +4,39 @@ import { useApp } from '../App'
 import { useToast } from '../App'
 import { challengeDay, formatDate } from '../lib/stats'
 import { MOODS } from '../lib/defaults'
-import { Trash2, Sparkles, Save } from 'lucide-react'
+import { Trash2, Sparkles, Save, Camera, X } from 'lucide-react'
+
+const readFileAsDataURL = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+
+// downscale to max 1280px JPEG so entries stay small in storage
+const resizeImage = async (file) => {
+  const url = await readFileAsDataURL(file)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const MAX = 1280
+      let { width, height } = img
+      if (width > MAX || height > MAX) {
+        const scale = MAX / Math.max(width, height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', 0.8))
+    }
+    img.onerror = () => resolve(url) // keep the original if it can't be drawn
+    img.src = url
+  })
+}
 
 // One diary entry — Oryzo-style dark card with technical labels
 // and springy check interactions.
@@ -18,7 +50,25 @@ export default function EntryEditor({ date }) {
   const all = [...habits, ...tasks]
   const done = all.filter((it) => entry.checks?.[it.id] === true).length
   const [showConfetti, setShowConfetti] = useState(false)
+  const [showLightbox, setShowLightbox] = useState(null)
   const saveState = saving?.[date]
+
+  const handleAddPhotos = async (e) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length) return
+    try {
+      const urls = await Promise.all(files.map(resizeImage))
+      updateEntry(date, { photos: [...(entry.photos || []), ...urls] })
+      addToast(`📷 ${urls.length} photo${urls.length > 1 ? 's' : ''} added`, 'success')
+    } catch (err) {
+      addToast('Photo failed to load: ' + err.message, 'error')
+    }
+  }
+
+  const removePhoto = (idx) => {
+    updateEntry(date, { photos: (entry.photos || []).filter((_, i) => i !== idx) })
+  }
 
   const isPerfect = done === all.length && all.length > 0
 
@@ -162,6 +212,29 @@ export default function EntryEditor({ date }) {
         )}
       </AnimatePresence>
 
+      {/* Photo lightbox */}
+      <AnimatePresence>
+        {showLightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            onClick={() => setShowLightbox(null)}
+          >
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={showLightbox}
+              alt="entry photo"
+              className="max-h-full max-w-full rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* header */}
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 p-5 dark:border-white/10 sm:p-6">
         <div>
@@ -278,6 +351,45 @@ export default function EntryEditor({ date }) {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Photo log */}
+        <div className="mb-5">
+          <p className="tag mb-2">[ photos ]</p>
+          {entry.photos?.length > 0 && (
+            <div className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
+              {entry.photos.map((src, i) => (
+                <div
+                  key={i}
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 dark:border-white/10"
+                >
+                  <img
+                    src={src}
+                    alt={`photo ${i + 1}`}
+                    onClick={() => setShowLightbox(src)}
+                    className="h-full w-full cursor-zoom-in object-cover"
+                  />
+                  <button
+                    onClick={() => removePhoto(i)}
+                    title="Remove photo"
+                    className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 px-4 py-2 font-mono text-xs uppercase tracking-wider text-slate-500 transition hover:border-slate-500 hover:text-slate-700 dark:border-white/15 dark:text-white/40 dark:hover:border-white/40 dark:hover:text-white">
+            <Camera size={14} /> Add photo
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleAddPhotos}
+            />
+          </label>
         </div>
 
         <p className="tag mb-2">[ habits — {String(habits.length).padStart(2, '0')} ]</p>

@@ -1,4 +1,7 @@
 // Analytics helpers — pure functions over the entries map.
+import { MOODS } from './defaults'
+
+const MOOD_SCORE = Object.fromEntries(MOODS.map((m) => [m.emoji, m.score]))
 
 export const toISO = (d) => {
   const dt = d instanceof Date ? d : new Date(d)
@@ -171,3 +174,52 @@ export function heatmap(entries, items, weeks = 17) {
   }
   return cols
 }
+
+// Mood ↔ habit correlation: average mood score (1–5) on days each habit was
+// done vs missed. Only entries with a mood are counted; habits with too few
+// samples report null averages.
+export function moodCorrelations(entries, items) {
+  const acc = {}
+  for (const it of items) {
+    acc[it.id] = { id: it.id, label: it.label, doneCount: 0, doneSum: 0, missedCount: 0, missedSum: 0 }
+  }
+  for (const entry of Object.values(entries)) {
+    const score = MOOD_SCORE[entry.mood]
+    if (score == null) continue
+    for (const it of items) {
+      const v = entry.checks?.[it.id]
+      if (v === true) {
+        acc[it.id].doneCount++
+        acc[it.id].doneSum += score
+      } else if (v === false) {
+        acc[it.id].missedCount++
+        acc[it.id].missedSum += score
+      }
+    }
+  }
+  return Object.values(acc).map((r) => ({
+    ...r,
+    doneAvg: r.doneCount ? r.doneSum / r.doneCount : null,
+    missedAvg: r.missedCount ? r.missedSum / r.missedCount : null,
+    diff:
+      r.doneCount && r.missedCount ? r.doneSum / r.doneCount - r.missedSum / r.missedCount : null,
+  }))
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Year in Pixels: 12 month rows of days, each { date, entry } or { date, entry: null }.
+export function yearPixels(year, entries) {
+  const months = []
+  for (let m = 0; m < 12; m++) {
+    const daysInMonth = new Date(year, m + 1, 0).getDate()
+    const days = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      days.push({ date, entry: entries[date] ?? null })
+    }
+    months.push({ label: MONTHS[m], days })
+  }
+  return months
+}
+
