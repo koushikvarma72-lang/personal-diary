@@ -1,14 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useApp } from '../App'
 import { todayISO, entryRate, addDays } from '../lib/stats'
+import { useSearchParams } from 'react-router-dom'
 import EntryEditor from '../components/EntryEditor'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function History() {
   const { settings, entries } = useApp()
-  const [date, setDate] = useState(todayISO())
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlDate = searchParams.get('date')
+  const [date, setDate] = useState(urlDate || todayISO())
   const today = todayISO()
+
+  // keep the editor in sync when the URL's ?date= changes
+  // (browser back/forward, links from Search, etc.)
+  useEffect(() => {
+    if (urlDate) setDate(urlDate)
+  }, [urlDate])
+
+  const goTo = (d) => {
+    setDate(d)
+    setSearchParams(d !== today ? { date: d } : {}, { replace: true })
+  }
 
   const color = (d) => {
     const r = entryRate(entries[d], settings.habits)
@@ -28,18 +42,18 @@ export default function History() {
       <div className="glass p-4 lg:sticky lg:top-32">
         <p className="tag mb-3">[ time machine — last 28 days ]</p>
         <div className="mb-3 flex items-center justify-between">
-          <button onClick={() => setDate(addDays(date, -1))} className="btn-icon">
+          <button onClick={() => goTo(addDays(date, -1))} className="btn-icon">
             <ChevronLeft size={18} />
           </button>
           <input
             type="date"
             value={date}
             max={today}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
+            onChange={(e) => e.target.value && goTo(e.target.value)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-mono text-sm dark:border-white/15 dark:bg-white/5 dark:text-white"
           />
           <button
-            onClick={() => setDate(addDays(date, 1))}
+            onClick={() => goTo(addDays(date, 1))}
             disabled={date >= today}
             className="btn-icon disabled:opacity-30"
           >
@@ -55,7 +69,7 @@ export default function History() {
               transition={{ delay: i * 0.012 }}
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setDate(d)}
+              onClick={() => goTo(d)}
               title={d}
               className={`aspect-square rounded ${color(d)} ${
                 d === date ? 'ring-2 ring-slate-900 dark:ring-acid' : ''

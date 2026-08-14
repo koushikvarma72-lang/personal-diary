@@ -1,23 +1,47 @@
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../App'
+import { useToast } from '../App'
 import { challengeDay, formatDate } from '../lib/stats'
+import { MOODS } from '../lib/defaults'
+import { Trash2, Sparkles, Save } from 'lucide-react'
 
 // One diary entry — Oryzo-style dark card with technical labels
 // and springy check interactions.
 export default function EntryEditor({ date }) {
-  const { settings, getEntry, updateEntry } = useApp()
+  const { settings, getEntry, updateEntry, deleteEntry, saving } = useApp()
+  const { addToast } = useToast()
   const entry = getEntry(date)
   const habits = settings.habits.filter((h) => h.type === 'habit')
   const tasks = settings.habits.filter((h) => h.type === 'task')
   const day = challengeDay(date, settings.challenge)
   const all = [...habits, ...tasks]
   const done = all.filter((it) => entry.checks?.[it.id] === true).length
+  const [showConfetti, setShowConfetti] = useState(false)
+  const saveState = saving?.[date]
+
+  const isPerfect = done === all.length && all.length > 0
 
   const cycle = (id) => {
-    // unmarked -> ✓ -> ✗ -> unmarked
     const cur = entry.checks?.[id]
     const next = cur === undefined || cur === null ? true : cur === true ? false : null
     updateEntry(date, { checks: { ...entry.checks, [id]: next } })
+    // check if this causes perfect day
+    const newDone = all.filter(
+      (it) => (it.id === id ? next === true : entry.checks?.[it.id] === true)
+    ).length
+    if (newDone === all.length && all.length > 0) {
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 3000)
+      addToast('🎯 Perfect day! All done.', 'success')
+    }
+  }
+
+  const handleDelete = () => {
+    if (confirm('Delete this entry? This cannot be undone.')) {
+      deleteEntry(date)
+      addToast('Entry deleted', 'error')
+    }
   }
 
   const Check = ({ id }) => {
@@ -98,7 +122,46 @@ export default function EntryEditor({ date }) {
   )
 
   return (
-    <div className="paper overflow-hidden">
+    <div className="paper overflow-hidden relative">
+      {/* Confetti overlay */}
+      <AnimatePresence>
+        {showConfetti && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
+          >
+            {[...Array(20)].map((_, i) => (
+              <motion.span
+                key={i}
+                className="absolute text-xl"
+                initial={{
+                  top: '50%',
+                  left: '50%',
+                  opacity: 1,
+                  scale: 0,
+                }}
+                animate={{
+                  top: `${Math.random() * 100}%`,
+                  left: `${Math.random() * 100}%`,
+                  opacity: [1, 1, 0],
+                  scale: [0, 1.5, 1],
+                  rotate: Math.random() * 360,
+                }}
+                transition={{
+                  duration: 1.5 + Math.random(),
+                  delay: Math.random() * 0.3,
+                  ease: 'easeOut',
+                }}
+              >
+                {['✨', '🎉', '⭐', '💪', '🔥', '🎯', '🌟'][Math.floor(Math.random() * 7)]}
+              </motion.span>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* header */}
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 p-5 dark:border-white/10 sm:p-6">
         <div>
@@ -119,14 +182,42 @@ export default function EntryEditor({ date }) {
             </p>
           )}
         </div>
-        <div className="text-right">
-          <p className="tag mb-1">completed</p>
-          <p className="font-mono text-2xl font-bold">
-            <span className={done === all.length && all.length > 0 ? 'text-lime-600 dark:text-acid' : ''}>
-              {String(done).padStart(2, '0')}
-            </span>
-            <span className="text-slate-400 dark:text-white/30">/{String(all.length).padStart(2, '0')}</span>
-          </p>
+        <div className="flex items-center gap-3">
+          {/* Save indicator */}
+          <div className="flex items-center gap-1.5 text-xs font-mono">
+            {saveState === 'saving' && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-1 text-yellow-500"
+              >
+                <Save size={12} className="animate-pulse" /> saving
+              </motion.span>
+            )}
+            {saveState === 'saved' && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [1, 0] }}
+                transition={{ duration: 2 }}
+                className="flex items-center gap-1 text-lime-600 dark:text-acid"
+              >
+                ✓ saved
+              </motion.span>
+            )}
+            {saveState === 'error' && (
+              <span className="flex items-center gap-1 text-red-500">
+                ✗ save failed
+              </span>
+            )}
+          </div>
+          {/* Delete button */}
+          <button
+            onClick={handleDelete}
+            title="Delete this entry"
+            className="btn-icon text-red-400 hover:text-red-600 dark:hover:text-red-400"
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
       </div>
 
@@ -139,7 +230,56 @@ export default function EntryEditor({ date }) {
         />
       </div>
 
+      {/* Perfect day badge */}
+      {isPerfect && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          className="flex items-center justify-center gap-2 bg-lime-600/10 py-2 dark:bg-acid/10"
+        >
+          <Sparkles size={14} className="text-lime-600 dark:text-acid" />
+          <span className="font-mono text-xs uppercase tracking-wider text-lime-600 dark:text-acid">
+            Perfect day — every checkbox checked
+          </span>
+          <Sparkles size={14} className="text-lime-600 dark:text-acid" />
+        </motion.div>
+      )}
+
       <div className="p-5 sm:p-6">
+        {/* Mood Tracker */}
+        <div className="mb-5">
+          <p className="tag mb-2">[ mood of the day ]</p>
+          <div className="flex flex-wrap gap-2">
+            {MOODS.map((m) => (
+              <motion.button
+                key={m.emoji}
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => updateEntry(date, { mood: m.emoji })}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all ${
+                  entry.mood === m.emoji
+                    ? 'border-acid bg-acid/10 text-acid'
+                    : 'border-slate-200 text-slate-400 hover:border-slate-400 dark:border-white/10 dark:text-white/40 dark:hover:border-white/30'
+                }`}
+                title={m.label}
+              >
+                <span>{m.emoji}</span>
+                <span className="font-mono text-[10px] uppercase tracking-wider hidden sm:inline">
+                  {m.label}
+                </span>
+              </motion.button>
+            ))}
+            {entry.mood && (
+              <button
+                onClick={() => updateEntry(date, { mood: null })}
+                className="rounded-full border border-transparent px-2 py-1.5 text-xs text-slate-400 hover:text-red-500"
+              >
+                clear
+              </button>
+            )}
+          </div>
+        </div>
+
         <p className="tag mb-2">[ habits — {String(habits.length).padStart(2, '0')} ]</p>
         {habits.map((h, i) => (
           <Row key={h.id} item={h} index={i} />

@@ -29,6 +29,11 @@ const local = {
     all[entry.date] = entry
     localStorage.setItem(LS_ENTRIES, JSON.stringify(all))
   },
+  async deleteEntry(date) {
+    const all = await local.getAllEntries()
+    delete all[date]
+    localStorage.setItem(LS_ENTRIES, JSON.stringify(all))
+  },
 }
 
 // ---------- supabase implementation ----------
@@ -63,6 +68,14 @@ const cloud = {
         { user_id: user.id, date: entry.date, data: entry },
         { onConflict: 'user_id,date' }
       )
+  },
+  async deleteEntry(date) {
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase
+      .from('entries')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('date', date)
   },
 }
 

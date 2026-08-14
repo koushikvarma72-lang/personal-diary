@@ -18,8 +18,18 @@ export const DEFAULT_SETTINGS = {
     // Day 17 was 08/07/2026, so day 1 = 22/06/2026
     startDate: '2026-06-22',
   },
+  notifications: false,
   theme: 'dark',
 }
+
+export const MOODS = [
+  { emoji: '😊', label: 'Great', color: 'text-lime-500' },
+  { emoji: '😐', label: 'Okay', color: 'text-yellow-500' },
+  { emoji: '😢', label: 'Sad', color: 'text-blue-400' },
+  { emoji: '😡', label: 'Frustrated', color: 'text-red-500' },
+  { emoji: '🥱', label: 'Tired', color: 'text-purple-400' },
+  { emoji: '🔥', label: 'On Fire', color: 'text-orange-500' },
+]
 
 export const EMPTY_ENTRY = (date) => ({
   date,
@@ -27,4 +37,5 @@ export const EMPTY_ENTRY = (date) => ({
   regret: '',
   achievement: '',
   take: '',
+  mood: null,
 })

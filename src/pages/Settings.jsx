@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { useApp } from '../App'
+import { useToast } from '../App'
 import { auth } from '../lib/storage'
 import { todayISO, challengeDay } from '../lib/stats'
-import { Trash2, Plus, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react'
+import { Trash2, Plus, ArrowUp, ArrowDown, RotateCcw, Download, Bell, BellOff } from 'lucide-react'
 
 export default function Settings() {
-  const { settings, saveSettings, user } = useApp()
+  const { settings, saveSettings, user, entries } = useApp()
   const [newLabel, setNewLabel] = useState('')
   const [newType, setNewType] = useState('habit')
   // local buffer so you can clear/type freely (e.g. 7, 21, 100)
@@ -46,6 +48,22 @@ export default function Settings() {
   }
 
   const day = challengeDay(todayISO(), settings.challenge)
+
+  const handleExport = () => {
+    const data = {
+      exportedAt: new Date().toISOString(),
+      settings,
+      entries,
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `daily-discipline-export-${todayISO()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast('📦 Data exported successfully', 'success')
+  }
 
   return (
     <div className="space-y-4">
@@ -148,6 +166,46 @@ export default function Settings() {
         </div>
       </Card>
 
+      <Card title="Notifications">
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Daily reminder
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-white/40">
+              Nags you while the app is open if today's entry isn't done yet — reminds you right
+              away, then again every hour and whenever you return to the tab, until you check in.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const next = !settings.notifications
+              if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                Notification.requestPermission()
+              }
+              saveSettings({ ...settings, notifications: next })
+            }}
+            className={`relative flex h-7 w-12 shrink-0 items-center rounded-full px-0.5 transition ${
+              settings.notifications
+                ? 'bg-lime-600 dark:bg-acid'
+                : 'bg-slate-300 dark:bg-white/15'
+            }`}
+          >
+            <motion.span
+              layout
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className={`flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${
+                settings.notifications
+                  ? 'bg-white text-lime-600'
+                  : 'bg-white text-slate-400'
+              }`}
+            >
+              {settings.notifications ? <Bell size={12} /> : <BellOff size={12} />}
+            </motion.span>
+          </button>
+        </div>
+      </Card>
+
       <Card title="Account">
         <p className="text-sm text-slate-600 dark:text-slate-300">
           {auth.isLocal ? (
@@ -159,6 +217,18 @@ export default function Settings() {
             <>Signed in as <b>{user?.email}</b></>
           )}
         </p>
+      </Card>
+
+      <Card title="Data">
+        <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
+          Export all your diary data as a JSON file. Contains entries, settings, and challenge data.
+        </p>
+        <button
+          onClick={handleExport}
+          className="flex items-center justify-center gap-2 rounded-lg bg-ink px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-800 dark:bg-acid dark:text-card dark:hover:brightness-110"
+        >
+          <Download size={16} /> Export all data (JSON)
+        </button>
       </Card>
     </div>
   )

@@ -126,6 +126,15 @@ export function perfectStreak(entries, items) {
   }
   return { current, best }
 }
+// Check whether an entry is "not done" — no habits marked AND no content written.
+export function isEntryIncomplete(entry) {
+  if (!entry) return true
+  // only count real marks (✓/✗); cycling a check back to blank doesn't count
+  const hasChecks = Object.values(entry.checks ?? {}).some((v) => v === true || v === false)
+  const hasText = (entry.regret ?? '').trim() || (entry.achievement ?? '').trim() || (entry.take ?? '').trim()
+  const hasMood = entry.mood != null
+  return !hasChecks && !hasText && !hasMood
+}
 
 // Trend data for last n days: [{date, label, rate}]
 export function trend(entries, items, n = 30) {
@@ -144,22 +153,19 @@ export function trend(entries, items, n = 30) {
   return out
 }
 
-// Heatmap: last `weeks` weeks as columns of 7 days.
+// Heatmap: last `weeks` weeks as columns of 7 days (Sun–Sat), the final
+// column being the current week with future days left empty.
 export function heatmap(entries, items, weeks = 17) {
   const today = todayISO()
   const end = new Date(today + 'T00:00:00')
-  // pad to end of week (Sat)
+  // start on the Sunday `weeks - 1` weeks back so the last column is this week
+  const start = addDays(today, -(weeks - 1) * 7 - end.getDay())
   const cols = []
-  let cursor = addDays(today, -(weeks * 7 - 1) - end.getDay())
-  for (let w = 0; w <= weeks; w++) {
+  for (let w = 0; w < weeks; w++) {
     const col = []
     for (let d = 0; d < 7; d++) {
-      if (cursor > today) { col.push(null) }
-      else {
-        const r = entryRate(entries[cursor], items)
-        col.push({ date: cursor, rate: r })
-      }
-      cursor = addDays(cursor, 1)
+      const date = addDays(start, w * 7 + d)
+      col.push(date > today ? null : { date, rate: entryRate(entries[date], items) })
     }
     cols.push(col)
   }
